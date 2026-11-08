@@ -110,7 +110,7 @@ The plan is to set up osTicket on the Ubuntu server, then break things on purpos
 
 | # | Issue | Cause | Fix |
 |---|-------|-------|-----|
-| 1 | User locked out | Too many failed logins hit the lockout policy | In progress <!-- TODO: unlock as mreed using delegated rights, confirm user can log in --> |
+| 1 | User locked out | Too many failed logins hit the lockout policy | Unlocked the account as the help desk tech (`mreed`) using delegated rights, no Domain Admin needed |
 | 2 | | | |
 | 3 | | | |
 
@@ -124,9 +124,17 @@ On the DC I confirmed the account was locked:
 
 ![Locked out on the DC](screenshots/dc-locked-check.png)
 
-Next step (in progress): unlock the account as `mreed` from CLIENT01, using only the help desk rights delegated above.
+Then I logged in to CLIENT01 as `mreed`, the help desk technician. He's a normal domain user, not an admin. The only extra rights he has come from the `GRP-HelpDesk` delegation above. I installed the RSAT Active Directory tools on CLIENT01 and unlocked the account from his session:
 
-<!-- TODO: unlock as mreed from CLIENT01 (RSAT + Unlock-ADAccount), add screenshots/unlocked.png -->
+```powershell
+whoami
+Unlock-ADAccount amoreau
+Get-ADUser amoreau -Properties LockedOut | Select Name, LockedOut
+```
+
+![Account unlocked by help desk](screenshots/unlocked.png)
+
+My first try failed with "Unlock-ADAccount is not recognized" because the terminal was opened before RSAT finished installing. Opening a new terminal fixed it.
 
 ## 5. Detecting attacks with Wazuh (in progress)
 
