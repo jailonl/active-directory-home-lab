@@ -2,7 +2,7 @@
 
 I built this lab to get hands-on practice with the kind of work done on a help desk and in a SOC. It's a small Windows domain running in VirtualBox with a ticketing system for handling user issues and a SIEM for catching attacks run from a Kali machine.
 
-Status: Parts 1 and 2 are done. Part 3 (joining a Windows 11 client) is in progress. I'm updating this as I finish each part.
+Status: Parts 1 through 3 are done. Part 4 (help desk tickets) is in progress. I'm updating this as I finish each part.
 
 ## What's in the lab
 
@@ -20,7 +20,9 @@ Network: VirtualBox NAT network, 192.168.50.0/24
 
 ## Tools and skills
 
-Windows Server 2022, Active Directory, Group Policy, DNS, DHCP, PowerShell, osTicket, Wazuh, Kali Linux, Nmap, Hydra, VirtualBox
+Windows Server 2022, Windows 11, Active Directory, Group Policy, DNS, DHCP, PowerShell, VirtualBox
+
+In progress: osTicket, Wazuh, Kali Linux, Nmap, Hydra
 
 ## 1. Domain controller
 
@@ -77,32 +79,66 @@ A help desk tech shouldn't need to be a Domain Admin just to reset a password. I
 
 ![Delegation of control](screenshots/delegation.png)
 
+The wizard's built-in task only covers password resets, not unlocking accounts. Unlocking means writing to the `lockoutTime` attribute, so I granted that separately with `dsacls`:
+
+```powershell
+dsacls 'OU=Users,OU=JLab,DC=jlab,DC=local' /I:S /G 'JLAB\GRP-HelpDesk:RPWP;lockoutTime;user'
+```
+
 ## 3. Joining a client to the domain
 
-<!-- TODO -->
+CLIENT01 is a Windows 11 Enterprise VM using EFI, TPM 2.0, and Secure Boot. During setup I picked "Domain join instead" so it got a local admin account rather than a Microsoft account.
 
-## 4. Help desk tickets
+Before joining, I checked that it pulled everything from the DC's DHCP scope: an address in the .100 to .200 range, DC01 as both the DHCP and DNS server, and `jlab.local` as the DNS suffix.
+
+![CLIENT01 ipconfig](screenshots/client-ipconfig.png)
+
+Then I renamed it and joined it to the domain in one command, placing it directly in the `JLab\Computers` OU instead of the default Computers container:
+
+```powershell
+Add-Computer -DomainName jlab.local -NewName CLIENT01 -OUPath "OU=Computers,OU=JLab,DC=jlab,DC=local" -Credential JLAB\Administrator -Restart
+```
+
+After the reboot I logged in as a domain user (`knguyen`). Since the script set "change password at next logon," Windows made the user pick a new password on first login.
+
+![Domain login on CLIENT01](screenshots/domain-login.png)
+
+## 4. Help desk tickets (in progress)
 
 <!-- TODO: one row per ticket -->
-I set up osTicket on the Ubuntu server, then broke things on purpose and worked through them as tickets.
+The plan is to set up osTicket on the Ubuntu server, then break things on purpose and work through them as tickets. osTicket isn't set up yet, but the first ticket scenario is underway.
 
 | # | Issue | Cause | Fix |
 |---|-------|-------|-----|
-| 1 | User locked out | Too many failed logins hit the lockout policy | <!-- TODO: unlock as mreed using delegated rights, confirm user can log in --> |
+| 1 | User locked out | Too many failed logins hit the lockout policy | In progress <!-- TODO: unlock as mreed using delegated rights, confirm user can log in --> |
 | 2 | | | |
 | 3 | | | |
 
-## 5. Detecting attacks with Wazuh
+### Ticket 1: locked out user
+
+To test the lockout policy, I signed in to CLIENT01 as `amoreau` with the wrong password until Windows locked the account.
+
+![Account locked out](screenshots/locked-out.png)
+
+On the DC I confirmed the account was locked:
+
+![Locked out on the DC](screenshots/dc-locked-check.png)
+
+Next step (in progress): unlock the account as `mreed` from CLIENT01, using only the help desk rights delegated above.
+
+<!-- TODO: unlock as mreed from CLIENT01 (RSAT + Unlock-ADAccount), add screenshots/unlocked.png -->
+
+## 5. Detecting attacks with Wazuh (in progress)
 
 <!-- TODO -->
-Installed Wazuh on the Ubuntu server and put agents on DC01 and CLIENT01. Then ran attacks from Kali to see what showed up.
+The plan is to install Wazuh on the Ubuntu server, put agents on DC01 and CLIENT01, then run attacks from Kali and see what shows up. Not started yet.
 
 | Attack | Tool | What Wazuh saw |
 |--------|------|----------------|
-| Port scan | Nmap | |
-| Password brute force | Hydra | Event ID 4625 (failed logon) |
+| Port scan | Nmap | In progress |
+| Password brute force | Hydra | In progress |
 
-## Problems I ran into
+## Problems I ran into (in progress)
 
 <!-- TODO: what broke and how you fixed it. Be specific. -->
 
